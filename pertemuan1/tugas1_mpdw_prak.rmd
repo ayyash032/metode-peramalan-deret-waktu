@@ -1,1 +1,62 @@
+```{r}
+library(readxl)
+library(forecast)
+library(TTR)
+
+# Read file
+data_full <- read_excel("C:\\Users\\yasyah\\Downloads\\Copy of CPIAUCSL_PC1.xlsx", sheet = "Monthly")
+
+
+data_ayyash <- data_full$CPIAUCSL_PC1[1:180]
+ts_data <- ts(data_ayyash)
+```
+
+
+```{r}
+#SMA
+sma_fit <- SMA(ts_data, n = 3)
+summary(sma_fit)
+```
+
+```{r}
+#DMA
+sma1 <- SMA(ts_data, n = 3)
+sma2 <- SMA(sma1, n = 3)
+
+at <- 2 * sma1 - sma2
+bt <- (2 / (3 - 1)) * (sma1 - sma2)
+dma_fit <- at + bt  
+```
+
+```{r}
+#SES
+fit_ses <- ses(ts_data, h = 1) 
+```
+
+```{r}
+#DES
+fit_des <- holt(ts_data, h = 1)
+```
+
+```{r}
+plot(ts_data, type = "l", col = "black", lwd = 2, 
+     main = "Hasil Forecasting Data Ayyash", 
+     ylab = "Nilai", xlab = "Periode (Bulan)")
+
+lines(sma_fit, col = "orange", lwd = 1.5)
+lines(dma_fit, col = "green", lwd = 1.5)
+lines(fit_ses$fitted, col = "blue", lwd = 1.5)
+lines(fit_des$fitted, col = "red", lwd = 1.5)
+
+legend("topright", 
+       legend = c("Aktual", "SMA (n=3)", "DMA (n=3)", "SES", "DES"), 
+       col = c("black", "orange", "green", "blue", "red"), 
+       lty = 1, lwd = 2)
+
+summary(fit_ses)
+summary(fit_des)
+
+accuracy(fit_ses)
+accuracy(fit_des)
+```
 
