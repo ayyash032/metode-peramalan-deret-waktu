@@ -1,0 +1,203 @@
+---
+title: "Pertemuan 2 - Regresi"
+author:
+- Adelia Putri Pangestika
+- Muhammad Rizky Nurhambali
+output:
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+  word_document: default
+  pdf_document: default
+---
+```{r}
+library(lmtest)
+library(orcutt)
+```
+
+#memasukan data
+```{r}
+  data1 <- data.frame(
+  period = 1:20,
+  market_share = c(
+    3.63, 4.20, 3.33, 4.54, 2.89,
+    4.87, 4.90, 5.29, 6.18, 7.20,
+    7.25, 6.09, 6.80, 8.65, 8.43,
+    8.29, 7.18, 7.90, 8.45, 8.23
+  ),
+  price = c(
+    0.97, 0.95, 0.99, 0.91, 0.98,
+    0.90, 0.89, 0.86, 0.85, 0.82,
+    0.79, 0.83, 0.81, 0.77, 0.76,
+    0.80, 0.83, 0.79, 0.76, 0.78
+  )
+)
+data2 <- data.frame(
+  year = 1975:2014,
+  sales = c(
+    11.7, 12.0, 12.3, 12.8, 13.1,
+    13.6, 13.9, 14.4, 14.7, 15.3,
+    15.5, 15.8, 16.1, 16.6, 16.9,
+    16.7, 16.9, 17.4, 17.6, 17.9,
+    18.0, 17.9, 18.0, 18.2, 18.2,
+    18.3, 18.6, 19.2, 19.3, 19.5,
+    19.2, 19.3, 19.5, 20.0, 20.0,
+    19.9, 19.8, 19.9, 20.2, 21.0
+  ),
+  advertising = c(
+    9.4, 9.6, 10.0, 10.4, 10.8,
+    10.9, 11.7, 12.2, 12.5, 12.9,
+    13.0, 13.2, 13.8, 14.2, 14.6,
+    14.4, 15.0, 15.4, 15.7, 15.9,
+    15.9, 16.0, 16.3, 16.2, 16.8,
+    17.3, 17.6, 18.1, 18.3, 18.5,
+    18.7, 18.9, 19.2, 20.0, 20.0,
+    20.3, 20.4, 21.0, 21.5, 22.1
+  )
+)
+
+data1
+data2
+```
+
+
+#pemodelan data
+```{r}
+model1 <- lm(market_share ~ price, data = data1)
+
+summary(model1)
+```
+
+
+
+```{r}
+model2 <- lm(sales ~ advertising, data = data2)
+
+summary(model2)
+```
+
+
+#mengecek auto korelasi berdasarkan visualisasi
+```{r}
+plot(
+  data1$period,
+  residuals(model1),
+  type = "o",
+  xlab = "Period",
+  ylab = "Residual",
+  main = "Plot Residual Data 1"
+)
+
+abline(h = 0)
+```
+
+
+
+```{r}
+plot(
+  data2$year,
+  residuals(model2),
+  type = "o",
+  xlab = "Year",
+  ylab = "Residual",
+  main = "Plot Residual Data 2"
+)
+
+abline(h = 0)
+```
+
+
+#mengecek apakah asumsi autokorelasi dilanggar
+```{r}
+dwtest(model1)
+```
+
+
+
+```{r}
+dwtest(model2)
+```
+
+
+#penanganan metode orcutt
+```{r}
+co1 <- cochrane.orcutt(model1)
+
+summary(co1)
+```
+
+
+```{r}
+co2 <- cochrane.orcutt(model2)
+
+summary(co2)
+```
+
+
+
+#penanganan metode hildrethlu
+```{r}
+hildreth_lu <- function(data, yvar, xvar,
+                        rho_seq = seq(0, 0.99, by = 0.001)) {
+  
+  y <- data[[yvar]]
+  x <- data[[xvar]]
+  
+  hasil <- data.frame(
+    rho = rho_seq,
+    SSE = NA
+  )
+  
+  for (i in 1:length(rho_seq)) {
+    
+    rho <- rho_seq[i]
+    
+    y_trans <- y[2:length(y)] -
+      rho * y[1:(length(y)-1)]
+    
+    x_trans <- x[2:length(x)] -
+      rho * x[1:(length(x)-1)]
+    
+    model <- lm(
+      y_trans ~ x_trans
+    )
+    
+    hasil$SSE[i] <- sum(residuals(model)^2)
+  }
+  
+  hasil[which.min(hasil$SSE), ]
+}
+```
+
+```{r}
+hl1 <- hildreth_lu(
+  data1,
+  "market_share",
+  "price"
+)
+
+hl1
+```
+
+
+
+```{r}
+hl2 <- hildreth_lu(
+  data2,
+  "sales",
+  "advertising"
+)
+
+hl2
+```
+
+#kesimpulan
+Data 1:
+
+Berdasarkan hasil model OLS, terdapat indikasi adanya autokorelasi positif pada residual. Untuk mengatasi masalah tersebut, digunakan metode Cochrane-Orcutt dan Hildreth-Lu. Hasil dari kedua metode menunjukkan nilai estimasi ρ yang hampir sama, yaitu sekitar 0,425. Hal ini menunjukkan bahwa kedua metode memberikan hasil yang relatif konsisten dalam menangani autokorelasi pada data.
+
+
+Data 2:
+
+Pada model OLS, ditemukan adanya autokorelasi positif yang cukup kuat pada residual, yang ditunjukkan oleh nilai Durbin-Watson sebesar 0,162. Oleh karena itu, dilakukan penanganan menggunakan metode Cochrane-Orcutt dan Hildreth-Lu. Kedua metode menghasilkan nilai estimasi ρ sekitar 0,903, yang menunjukkan bahwa autokorelasi pada Data 2 cukup kuat. Hasil yang hampir sama dari kedua metode juga menunjukkan bahwa estimasi yang diperoleh relatif konsisten.
