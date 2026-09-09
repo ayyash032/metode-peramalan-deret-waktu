@@ -1,1 +1,172 @@
+---
+title: "Tugas pertemuan 3"
+author: "Muhammad Ayyash Syahrullah"
+output:
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+---
+
+```{r}
+library(dLagM)
+library(dynlm)
+library(MLmetrics)
+library(lmtest)
+library(car)
+```
+
+
+```{r}
+period_l1 <- 1:20
+market_share <- c(3.63, 4.20, 3.33, 4.54, 2.89, 4.87, 4.90, 5.29, 6.18, 7.20, 
+                  7.25, 6.09, 6.80, 8.65, 8.43, 8.29, 7.18, 7.90, 8.45, 8.23)
+price <- c(0.97, 0.95, 0.99, 0.91, 0.98, 0.90, 0.89, 0.86, 0.85, 0.82, 
+           0.79, 0.83, 0.81, 0.77, 0.76, 0.80, 0.83, 0.79, 0.76, 0.78)
+
+data1 <- data.frame(
+  Period = period_l1,
+  Yt = market_share,
+  Xt = price
+)
+
+str(data1)
+head(data1)
+```
+
+```{r}
+train1 <- data1[1:15, ]
+test1 <- data1[16:20, ]
+
+train1.ts <- ts(train1)
+test1.ts <- ts(test1)
+```
+
+```{r}
+model.koyck1 <- koyckDlm(x = train1$Xt, y = train1$Yt)
+summary(model.koyck1)
+AIC(model.koyck1)
+BIC(model.koyck1)
+
+fore.koyck1 <- forecast(model = model.koyck1, x = test1$Xt, h = 5)
+mape.koyck1 <- MAPE(fore.koyck1$forecasts, test1$Yt)
+mape.koyck1
+GoF(model.koyck1)
+```
+
+```{r}
+aic_val <- c()
+for (i in 1:4) {
+  fit <- dlm(x = train1$Xt, y = train1$Yt, q = i)
+  aic_val[i] <- AIC(fit)
+}
+
+q_opt1 <- which.min(aic_val)
+cat("Lag optimum (q):", q_opt1, "\n")
+
+
+model.dlm1 <- dlm(x = train1$Xt, y = train1$Yt, q = q_opt1)
+summary(model.dlm1)
+
+
+fore.dlm1 <- forecast(model = model.dlm1, x = test1$Xt, h = 5)
+fore.dlm1
+mape.dlm1 <- MAPE(fore.dlm1$forecasts, test1$Yt)
+mape.dlm1
+GoF(model.dlm1)
+```
+
+```{r}
+akurasi_l1 <- matrix(c(mape.koyck1, mape.dlm1))
+row.names(akurasi_l1) <- c("Koyck", paste0("DLM (q=", q_opt1, ")"))
+colnames(akurasi_l1) <- c("MAPE Test")
+akurasi_l1
+
+# Plot Perbandingan Peramalan Latihan 1
+plot(test1$Period, test1$Yt, type = "b", col = "black", 
+     ylim = c(min(test1$Yt) - 1, max(test1$Yt) + 1),
+     xlab = "Periode", ylab = "Market Share (Y)", main = "Perbandingan Hasil Peramalan Latihan 1")
+lines(test1$Period, fore.koyck1$forecasts, col = "red", type = "b")
+lines(test1$Period, fore.dlm1$forecasts, col = "blue", type = "b")
+legend("topleft", legend = c("Aktual", "Koyck", "DLM"), 
+       col = c("black", "red", "blue"), lty = 1, pch = 1)
+```
+
+```{r}
+year_l2 <- 1975:2014
+sales <- c(11.7, 12.0, 12.3, 12.8, 13.1, 13.6, 13.9, 14.4, 14.7, 15.3, 
+           15.5, 15.8, 16.1, 16.6, 16.9, 16.7, 16.9, 17.4, 17.6, 17.9, 
+           18.0, 17.9, 18.0, 18.2, 18.2, 18.3, 18.6, 19.2, 19.3, 19.5, 
+           19.2, 19.3, 19.5, 20.0, 20.0, 19.9, 19.8, 19.9, 20.2, 21.0)
+
+advertising <- c(9.4, 9.6, 10.0, 10.4, 10.8, 10.9, 11.7, 12.2, 12.5, 12.9, 
+                 13.0, 13.2, 13.8, 14.2, 14.6, 14.4, 15.0, 15.4, 15.7, 15.9, 
+                 15.9, 16.0, 16.3, 16.2, 16.8, 17.2, 17.6, 18.1, 18.3, 18.5, 
+                 18.7, 18.9, 19.2, 20.0, 20.0, 20.3, 20.4, 21.0, 21.5, 22.1)
+
+data2 <- data.frame(
+  Year = year_l2,
+  Yt = sales,
+  Xt = advertising
+)
+
+str(data2)
+head(data2)
+```
+
+```{r}
+train2 <- data2[1:32, ]
+test2 <- data2[33:40, ]
+
+train2.ts <- ts(train2)
+test2.ts <- ts(test2)
+```
+
+```{r}
+model.ardl.opt2 <- ardlBoundOrders(data = data.frame(train2), ic = "AIC", 
+                                   formula = Yt ~ Xt)
+model.ardl.opt2
+
+
+min_p2 <- c()
+for(i in 1:dim(model.ardl.opt2$Stat.table)[1]){
+  min_p2[i] <- min(model.ardl.opt2$Stat.table[i, ], na.rm = TRUE)
+}
+q_opt2 <- which.min(min_p2)
+p_opt2 <- which.min(model.ardl.opt2$Stat.table[q_opt2, ])
+
+cat("Orde p optimum (Lag X):", p_opt2, "\n")
+cat("Orde q optimum (Lag Y):", q_opt2, "\n")
+```
+
+```{r}
+model.ardl2 <- ardlDlm(formula = Yt ~ Xt, data = train2, p = p_opt2, q = q_opt2)
+summary(model.ardl2)
+AIC(model.ardl2)
+BIC(model.ardl2)
+
+fore.ardl2 <- forecast(model = model.ardl2, x = test2$Xt, h = nrow(test2))
+mape.ardl2 <- MAPE(fore.ardl2$forecasts, test2$Yt)
+mape.ardl2
+GoF(model.ardl2)
+```
+
+```{r}
+model.dynlm2 <- dynlm(Yt ~ Xt + L(Xt) + L(Yt), data = train2.ts)
+summary(model.dynlm2)
+
+
+dwtest(model.dynlm2)                         
+bptest(model.dynlm2)                          
+shapiro.test(residuals(model.dynlm2))         
+```
+
+```{r}
+plot(test2$Year, test2$Yt, type = "b", col = "black", 
+     ylim = c(min(test2$Yt) - 1, max(test2$Yt) + 1),
+     xlab = "Tahun", ylab = "Sales (Y)", main = "Hasil Peramalan Model ARDL (Latihan 2)")
+lines(test2$Year, fore.ardl2$forecasts, col = "green", type = "b")
+legend("topleft", legend = c("Aktual", "ARDL Optimum"), 
+       col = c("black", "green"), lty = 1, pch = 1)
+```
 
