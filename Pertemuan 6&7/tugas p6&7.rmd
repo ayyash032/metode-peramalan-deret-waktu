@@ -1,0 +1,96 @@
+---
+title: "tugas 6 & 7"
+author: "ayash"
+date: "2026-09-30"
+output: html_document
+---
+
+```{r}
+
+library(readxl)
+library(forecast)
+library(tseries)
+library(ggplot2)
+
+
+data_excel <- read_excel("C:\\Users\\yasyah\\Downloads\\Copy of CPIAUCSL_PC1.xlsx", sheet = "Monthly")
+
+
+str(data_excel)
+head(data_excel)
+
+# Konversi kolom data numerik ke objek time series (bulanan -> frequency = 12)
+# Sesuaikan indeks kolom (misal kolom ke-2) dan tahun/bulan awal data Anda
+
+ts_data <- ts(data_excel[[2]], start = c(1948, 1), frequency = 12)
+
+# Plot deret waktu awal
+autoplot(ts_data) +
+  ggtitle("Plot Deret Waktu Bulanan") +
+  xlab("Tahun") + ylab("Nilai CPI / Persentase") +
+  theme_minimal()
+```
+
+```{r}
+# Uji ADF pada data asli (level)
+adf_test_level <- adf.test(ts_data, alternative = "stationary")
+print(adf_test_level)
+```
+
+Interpretasi dan Hipotesis Uji ADF:
+
+Hipotesis Nol ($H_0$): Data tidak stasioner (memiliki unit root). 
+
+Hipotesis Alternatif ($H_1$): Data stasioner. 
+
+Kriteria Keputusan: 
+
+- Jika $p\text{-value} > 0,05$: Gagal tolak $H_0$ $\rightarrow$ Data tidak stasioner. Diperlukan proses diferensiasi (differencing). 
+
+- Jika $p\text{-value} \le 0,05$: Tolak $H_0$ $\rightarrow$ Data sudah stasioner pada level ($d = 0$).
+
+Interpretasi: Karena $p\text{-value} = 0,01 \le 0,05$, keputusan uji statistik adalah Tolak $H_0$. Artinya, data deret waktu sudah stasioner pada tingkat dasar (level) tanpa memerlukan proses diferensiasi ($d = 0$).
+```{r}
+ggtsdisplay(ts_data, main = "Plot Correlogram (ACF & PACF) - Data Level")
+```
+Interpretasi:
+
+Plot ACF yang memotong batas signifikansi (cut-off) setelah lag tertentu mengindikasikan kandidat nilai $q$.
+
+Plot PACF yang cut-off pada lag awal mengindikasikan kandidat nilai $p$.
+```{r}
+fit_arima <- auto.arima(ts_data,d = 0, stepwise = FALSE, approximation = FALSE, trace = TRUE)
+```
+Parameter d = 0 ditetapkan pada fungsi auto.arima() berdasarkan hasil stasioneritas. Fungsi mengevaluasi berbagai kombinasi $ARIMA(p, 0, q)$ dan memilih model dengan nilai AICc (Akaike Information Criterion Corrected) terkecil.
+
+```{r}
+summary(fit_arima)
+```
+Interpretasi: Model dengan nilai AICc/BIC paling rendah memberikan keseimbangan paling optimal antara akurasi model dan efisiensi jumlah parameter.
+
+```{r}
+checkresiduals(fit_arima)
+```
+
+```{r}
+box_test <- Box.test(residuals(fit_arima), lag = 12, type = "Ljung-Box")
+print(box_test)
+```
+Uji Ljung-Box: Jika $p\text{-value} > 0,05$, maka $H_0$ (sisaan bersifat white noise) gagal ditolak. Ini menunjukkan tidak ada lagi pola autokorelasi yang tertinggal dalam sisaan.
+
+Histogram Sisaan: Memastikan sisaan terdistribusi secara acak di sekitar nilai nol dan mendekati distribusi normal.
+
+```{r}
+ramalan <- forecast(fit_arima, h = 12)
+print(ramalan)
+```
+point forecast : Nilai estimasi utama untuk peramalan bulanan ke depan.
+
+LO/HI : Selang kepercayaan $80\%$ dan $95\%$. Mengindikasikan batas bawah dan atas nilai aktual yang diperkirakan terjadi pada masa depan.
+```{r}
+autoplot(ramalan) +
+  ggtitle("Peramalan CPIAUCSL_PC1 12 Bulan Ke Depan") +
+  xlab("Tahun") + ylab("Nilai Ramalan") +
+  theme_minimal()
+```
+
